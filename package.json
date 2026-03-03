@@ -1,0 +1,17 @@
+{
+    "type": "module",
+    "private": true,
+    "dependencies": {
+        "cookie": "^1.1.1"
+    },
+    "devDependencies": {
+        "@rollup/plugin-commonjs": "^29.0.0",
+        "@rollup/plugin-node-resolve": "^16.0.0",
+        "rollup": "^4.0.0"
+    },
+    "scripts": {
+        "build": "rollup -c",
+        "bundle": "npm run build && cp bundle.json dist/ && cd dist && tar -czf ../monetizationos-akamai-proxy.tgz bundle.json main.js",
+        "deploy": "npm run bundle && echo 'Upload monetizationos-akamai-proxy.tgz via Akamai Control Center or CLI'"
+    }
+}
