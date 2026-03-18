@@ -7,7 +7,7 @@ import { httpRequest } from 'http-request'
  * To reach api.monetizationos.com, we route through the property using a path prefix
  * (e.g. /mos-api/...) which Property Manager maps to the API origin.
  */
-export default async function fetchSurfaceDecisions(env, { surfaceSlug, anonymousIdentifier, userJwt, path, propertyBaseUrl }) {
+export default async function fetchSurfaceDecisions(env, { surfaceSlug, anonymousIdentifier, userJwt, path, propertyBaseUrl, pageMetadata }) {
     if (!env.MONETIZATION_OS_SECRET_KEY) {
         return null
     }
@@ -17,7 +17,7 @@ export default async function fetchSurfaceDecisions(env, { surfaceSlug, anonymou
     const payload = {
         surfaceSlug,
         identity: { anonymousIdentifier, userJwt },
-        resource: { id: path },
+        resource: { id: path, meta: pageMetadata },
     }
 
     try {
