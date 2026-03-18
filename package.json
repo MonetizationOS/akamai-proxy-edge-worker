@@ -1,17 +1,21 @@
 {
     "type": "module",
     "private": true,
+    "packageManager": "pnpm@10.29.2",
     "dependencies": {
         "cookie": "^1.1.1"
     },
     "devDependencies": {
-        "@rollup/plugin-commonjs": "^29.0.0",
-        "@rollup/plugin-node-resolve": "^16.0.0",
-        "rollup": "^4.0.0"
+        "@rollup/plugin-commonjs": "^29.0.2",
+        "@rollup/plugin-node-resolve": "^16.0.3",
+        "html-rewriter-wasm": "^0.4.1",
+        "rollup": "^4.59.0",
+        "vitest": "~4.1.0"
     },
     "scripts": {
         "build": "rollup -c",
-        "bundle": "npm run build && cp bundle.json dist/ && cd dist && tar -czf ../monetizationos-akamai-proxy.tgz bundle.json main.js",
-        "deploy": "npm run bundle && echo 'Upload monetizationos-akamai-proxy.tgz via Akamai Control Center or CLI'"
+        "bundle": "pnpm run build && cp bundle.json dist/ && cd dist && tar -czf ../monetizationos-akamai-proxy.tgz bundle.json main.js",
+        "deploy": "pnpm run bundle && echo 'Upload monetizationos-akamai-proxy.tgz via Akamai Control Center or CLI'",
+        "test": "vitest"
     }
 }
