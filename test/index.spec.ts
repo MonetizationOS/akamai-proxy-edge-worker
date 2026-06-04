@@ -1,15 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { responseProvider } from '../src/main.js'
+import { responseProvider } from '../src/main'
 import { httpRequest } from 'http-request'
 import {
     createMockRequest,
     getBodyText,
+    getHeaderValue,
+    getHeaderValues,
     mockHttpRequest,
     surfaceDecisionsResponse,
     testEnv,
-} from './helpers.js'
+} from './helpers'
 
-vi.mock('../src/env.js', () => ({
+vi.mock('../src/env', () => ({
     loadEnv: vi.fn().mockReturnValue({
         ORIGIN_URL: 'https://origin.example',
         SURFACE_SLUG: 'web',
@@ -20,24 +22,9 @@ vi.mock('../src/env.js', () => ({
         MONETIZATION_OS_ENDPOINTS_PREFIX: '/mos-endpoints/',
         MONETIZATION_OS_API_PATH_PREFIX: '/mos-api',
         MONETIZATION_OS_SECRET_KEY: 'sk_test_123_key.payload',
+        SURFACE_DECISIONS_IGNORE_PATHS: '',
     }),
 }))
-
-function getHeaderValue(headers, name) {
-    const lower = name.toLowerCase()
-    for (const [k, v] of Object.entries(headers || {})) {
-        if (k.toLowerCase() === lower) return (v || [])[0] ?? null
-    }
-    return null
-}
-
-function getHeaderValues(headers, name) {
-    const lower = name.toLowerCase()
-    for (const [k, v] of Object.entries(headers || {})) {
-        if (k.toLowerCase() === lower) return v || []
-    }
-    return []
-}
 
 describe('MonetizationOS Proxy', () => {
     afterEach(() => {
@@ -72,6 +59,11 @@ describe('MonetizationOS Proxy', () => {
         expect(res.status).toBe(200)
         const text = typeof res.body === 'string' ? res.body : await getBodyText(res.body)
         expect(text).toBe('response')
+        expect(
+            vi.mocked(httpRequest).mock.calls.some(([url]: [string]) => String(url).includes('/mos-api/api/v1/envs/')),
+        ).toBe(
+            true,
+        )
     })
 
     it('fetch surface decisions for HTML responses', async () => {
@@ -161,7 +153,7 @@ describe('MonetizationOS Proxy', () => {
         {
             name: 'body string',
             http: { body: 'DENIED' },
-            assert: async (res) => {
+            assert: async (res: Awaited<ReturnType<typeof responseProvider>>) => {
                 expect(res.status).toBe(200)
                 const text = res.body ? await getBodyText(res.body) : ''
                 expect(text).toBe('DENIED')
@@ -170,7 +162,7 @@ describe('MonetizationOS Proxy', () => {
         {
             name: 'body null',
             http: { body: null },
-            assert: async (res) => {
+            assert: async (res: Awaited<ReturnType<typeof responseProvider>>) => {
                 expect(res.status).toBe(200)
                 const text = res.body ? await getBodyText(res.body) : ''
                 expect(text).toBe('')
@@ -184,7 +176,7 @@ describe('MonetizationOS Proxy', () => {
                 status: 201,
                 body: 'OK',
             },
-            assert: async (res) => {
+            assert: async (res: Awaited<ReturnType<typeof responseProvider>>) => {
                 expect(res.status).toBe(201)
                 expect(getHeaderValue(res.headers, 'content-type')).toBe('text/plain')
                 expect(getHeaderValue(res.headers, 'x-custom')).toBe('123')
@@ -198,7 +190,7 @@ describe('MonetizationOS Proxy', () => {
         {
             name: 'addHeaders (modify)',
             http: { addHeaders: [{ name: 'X-Added', value: '42' }] },
-            assert: async (res) => {
+            assert: async (res: Awaited<ReturnType<typeof responseProvider>>) => {
                 expect(getHeaderValue(res.headers, 'x-added')).toBe('42')
                 expect(getHeaderValue(res.headers, 'content-type')).toBe('text/html')
                 expect(res.status).toBe(200)
@@ -209,7 +201,7 @@ describe('MonetizationOS Proxy', () => {
         {
             name: 'removeHeaders (modify)',
             http: { removeHeaders: ['Content-Type'] },
-            assert: async (res) => {
+            assert: async (res: Awaited<ReturnType<typeof responseProvider>>) => {
                 expect(getHeaderValue(res.headers, 'content-type')).toBeNull()
                 expect(res.status).toBe(200)
                 const text = await getBodyText(res.body)
@@ -219,7 +211,7 @@ describe('MonetizationOS Proxy', () => {
         {
             name: 'addCookies (modify)',
             http: { addCookies: ['c=3; Path=/', 'd=4; Path=/'] },
-            assert: async (res) => {
+            assert: async (res: Awaited<ReturnType<typeof responseProvider>>) => {
                 const setCookies = getHeaderValues(res.headers, 'set-cookie')
                 expect(setCookies).toContain('c=3; Path=/')
                 expect(setCookies).toContain('d=4; Path=/')
@@ -231,7 +223,7 @@ describe('MonetizationOS Proxy', () => {
         {
             name: 'status (modify)',
             http: { status: 418 },
-            assert: async (res) => {
+            assert: async (res: Awaited<ReturnType<typeof responseProvider>>) => {
                 expect(res.status).toBe(418)
                 const text = await getBodyText(res.body)
                 expect(text).toContain('<h1>Test</h1>')
