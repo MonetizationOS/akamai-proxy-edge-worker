@@ -1,260 +1,236 @@
-# MonetizationOS Akamai Proxy
+<div align="center">
+  <a href="https://monetizationos.com">
+  <img alt="MonetizationOS logo" src="https://app.monetizationos.com/static/monetizationos-logo.png" height="48">
+  </a>
+  <h1>MonetizationOS Akamai Proxy</h1>
+</div>
 
-An Akamai EdgeWorkers service that proxies requests to an origin server and applies MonetizationOS surface decisions, behaviors, and component transformations.
+[MonetizationOS](https://monetizationos.com) powers monetization for human and bot users alike. Use this Akamai EdgeWorkers service to proxy your website and integrate MonetizationOS Surfaces, enabling seamless monetization experiences for sites served with static HTML.
 
-This is the Akamai EdgeWorkers equivalent of the Cloudflare Worker and Fastly Compute worker.
+This worker includes handling for both HTTP response modification and CSS-targeted Components for content modifications including: removal/truncation, displaying offerings, and custom messaging.
 
-## Architecture
+The shared proxy pipeline is provided by [`@monetizationos/proxy`](https://www.npmjs.com/package/@monetizationos/proxy). This repository contains the EdgeWorkers entrypoint (`responseProvider`), Property Manager variable mapping, and Akamai-specific adapters for `HtmlRewritingStream`, `httpRequest()`, and routing MonetizationOS API traffic through your property via `/mos-api`.
 
-The worker processes requests through a pipeline:
+Read more about using MonetizationOS at [docs.monetizationos.com](https://docs.monetizationos.com).
 
-1. **Origin Request** — Proxies the request to the configured origin server (or handles MonetizationOS custom endpoint requests)
-2. **Rewrite Origin Response** — Rewrites origin URLs in headers and body to match the proxy's URL
-3. **Surface Decisions** — Fetches surface decisions from the MonetizationOS API
-4. **Surface Behavior** — Applies HTTP-level behaviors (headers, cookies, redirects)
-5. **Surface Components** — Applies HTML-level component transformations using string-based regex matching
+This package mirrors the architecture of the [Cloudflare proxy worker](https://github.com/MonetizationOS/cloudflare-proxy-worker).
 
-## Key Differences from Cloudflare/Fastly Versions
+## Required variables
 
-| Feature | Cloudflare | Fastly | Akamai |
-|---|---|---|---|
-| Entry point | `export default { fetch() }` | `addEventListener("fetch", ...)` | `export async function responseProvider()` |
-| Environment | `Env` bindings | `ConfigStore` + `SecretStore` | Property Manager variables (`PMUSER_`) |
-| HTML rewriting | `HTMLRewriter` (streaming) | `HTMLRewritingStream` (streaming) | `HtmlRewritingStream` (streaming) |
-| Outbound fetch | Direct `fetch()` | `fetch()` with `{ backend }` | `httpRequest()` from `http-request` |
-| Language | TypeScript | JavaScript | JavaScript |
+Set these in your Akamai property using the **Set Variable** behavior with the `PMUSER_` prefix. See `.env.example` for reference values.
 
-### HTML Rewriting Strategy
+| PMUSER variable | Maps to | Description |
+|---|---|---|
+| `PMUSER_MOS_SECRET_KEY` | `MONETIZATION_OS_SECRET_KEY` | Your MonetizationOS secret key. [Get your secret key](https://docs.monetizationos.com/docs/guides/environments/managing-environments#api-keys). |
+| `PMUSER_ORIGIN_URL` | `ORIGIN_URL` | The full URL of the origin server for your proxied website. |
+| `PMUSER_SURFACE_SLUG` | `SURFACE_SLUG` | The slug for the MonetizationOS surface you want to target. |
+| `PMUSER_AUTH_JWT_COOKIE` | `AUTHENTICATED_USER_JWT_COOKIE_NAME` | Cookie name for authenticated user JWT sessions. |
+| `PMUSER_ANON_COOKIE` | `ANONYMOUS_SESSION_COOKIE_NAME` | Cookie name for anonymous sessions. |
+| `PMUSER_INJECT_SCRIPT_URL` | `INJECT_SCRIPT_URL` | URL of the MonetizationOS web components script to inject when component transforms run. |
+| `PMUSER_MOS_HOST` | `MONETIZATION_OS_HOST` | MonetizationOS API host. Defaults to `https://api.monetizationos.com` in the worker config. |
+| `PMUSER_MOS_ENDPOINTS_PREFIX` | `MONETIZATION_OS_ENDPOINTS_PREFIX` | Path prefix for proxied custom endpoints. Defaults to `/mos-endpoints/` in the worker config. |
+| `PMUSER_MOS_API_PREFIX` | — | Path prefix for the Property Manager rule that forwards API sub-requests to `api.monetizationos.com`. Defaults to `/mos-api`. |
 
-Akamai EdgeWorkers provide `HtmlRewritingStream` via the built-in [`html-rewriter`](https://techdocs.akamai.com/edgeworkers/docs/htmlrewriter) module — the same lol-html streaming engine used by Cloudflare's `HTMLRewriter` and Fastly's `HTMLRewritingStream`. The API surface (`onElement`, `before`, `after`, `prepend`, `append`, `remove`, `replaceWith`) is nearly identical across all three platforms.
+`httpRequest()` only reaches hostnames served through your Akamai property. The worker calls the MonetizationOS API at `{scheme}://{host}{PMUSER_MOS_API_PREFIX}/api/v1/...`, which your property must map to `api.monetizationos.com` (see [Property Manager configuration](#property-manager-configuration) below).
 
-Limitations:
+## Optional: paths that skip surface decisions
+
+`PMUSER_SURFACE_DECISIONS_IGNORE_PATHS` is a comma-separated list of regular expressions. Matching pathnames still proxy to the origin and rewrite origin links, but skip MonetizationOS surface decisions and component transforms.
+
+## Optional: headers sent to the origin
+
+`PMUSER_ORIGIN_REQUEST_HEADERS` adds or overrides outgoing headers on every upstream `httpRequest()` to the origin. Set it to a JSON object mapping header names to values. Leave it empty or omit it when no extra headers are needed.
+
+Example Property Manager value:
+
+```json
+{"X-Api-Key": "secret", "X-Custom": "my-value"}
+```
+
+## HTML rewriting notes
+
+Akamai provides [`HtmlRewritingStream`](https://techdocs.akamai.com/edgeworkers/docs/htmlrewriter) (lol-html, same family as Cloudflare `HTMLRewriter` and Fastly `HTMLRewritingStream`). The shared core applies these constraints on Akamai:
+
 - `:last-child` selectors are logged and skipped
-- Range replacements are not supported (same as Fastly)
-- `HtmlRewritingStream` does not auto-escape inserted content, so text elements are pre-escaped before insertion
+- `replaceRange` requires `onEndTag`; Akamai's rewriter does not expose it, so range replacement is skipped (same as Fastly)
+- Inserted text nodes are escaped in the adapter when the core requests non-HTML content
+
+## Commands
+
+- `pnpm run build` — Typecheck and bundle to `dist/main.js`.
+- `pnpm run bundle` — Build and create `monetizationos-akamai-proxy.tgz` for upload.
+- `pnpm test` — Run tests with Vitest.
+- `pnpm run test:run` — Run tests once (CI).
+- `pnpm run deploy` — Build the bundle and print upload instructions.
+
+---
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/)
+- [Node.js](https://nodejs.org/) 22+
+- [Akamai CLI](https://github.com/akamai/cli) with EdgeWorkers and Sandbox modules
 
-## Setup
-
-### 1. Install the Akamai CLI
+### Install the Akamai CLI
 
 **macOS (Homebrew):**
 
 ```bash
 brew install akamai
-```
-
-**Linux / manual install:**
-
-Download the binary for your platform from the [GitHub releases page](https://github.com/akamai/cli/releases), make it executable, and add it to your `$PATH`:
-
-```bash
-curl -L https://github.com/akamai/cli/releases/latest/download/akamai-<version>-linux-amd64 -o /usr/local/bin/akamai
-chmod +x /usr/local/bin/akamai
-```
-
-Then install the EdgeWorkers and Sandbox CLI modules:
-
-```bash
 akamai install edgeworkers
 akamai install sandbox
 ```
 
-### 2. Configure API Credentials
+**Linux / manual install:** download from the [GitHub releases page](https://github.com/akamai/cli/releases), add to `$PATH`, then run the `akamai install` commands above.
 
-The Akamai CLI authenticates via an `.edgerc` file in your home directory. To create one:
+### API credentials
 
-1. Log into [Akamai Control Center](https://control.akamai.com/)
-2. Go to **Identity and Access Management** → **Create API client**
-3. Select **Quick** and **Download** your credentials
-4. Save the file as `~/.edgerc` and make sure it has a `[default]` section header:
+Create `~/.edgerc` from [Akamai Control Center](https://control.akamai.com/) → **Identity and Access Management** → **Create API client** (Quick). The client needs **EdgeWorkers** and **Sandbox** API access.
 
-```ini
-[default]
-client_secret = xxxx
-host = xxxx.luna.akamaiapis.net
-access_token = xxxx
-client_token = xxxx
-```
+### Troubleshooting: `Cannot find module 'akamai-edgegrid'`
 
-The API client needs access to **EdgeWorkers** and **Sandbox** APIs.
-
-### 3. Install Node.js dependencies
+If `akamai edgeworkers` fails with that error, the EdgeWorkers CLI package was installed without its Node dependencies (common after `akamai install edgeworkers` or Node upgrades). Reinstall them:
 
 ```bash
+cd ~/.akamai-cli/src/cli-edgeworkers/
 npm install
+npm run build
 ```
 
-### 4. Configure Property Manager Variables
+Then retry your command. You can also refresh the package with `akamai update edgeworkers` and run the same steps if the error persists.
 
-In your Akamai property configuration, create the following user-defined variables using the **Set Variable** behavior. See `.env.example` for reference values.
+---
 
-| Variable | Description | Example |
-|---|---|---|
-| `PMUSER_ORIGIN_URL` | The full URL of the origin server | `https://news.wingorigin.dev` |
-| `PMUSER_SURFACE_SLUG` | MonetizationOS surface slug identifier | `future-herald-web` |
-| `PMUSER_AUTH_JWT_COOKIE` | Cookie name for authenticated user JWT | `__session` |
-| `PMUSER_ANON_COOKIE` | Cookie name for anonymous sessions | `anon-session-id` |
-| `PMUSER_INJECT_SCRIPT_URL` | URL of the web components script to inject | `https://assets.monetizationos.com/web-components-latest.js` |
-| `PMUSER_MOS_HOST` | MonetizationOS API host URL | `https://api.monetizationos.com` |
-| `PMUSER_MOS_ENDPOINTS_PREFIX` | URL prefix for proxied API endpoints | `/mos-endpoints/` |
-| `PMUSER_MOS_API_PREFIX` | Path prefix for the MonetizationOS API proxy rule | `/mos-api` |
-| `PMUSER_MOS_SECRET_KEY` | MonetizationOS API secret key | `sk_preview_...` |
+## Local development
 
-### 5. Configure Origins
+1. Install dependencies:
 
-Add the following origins to your Akamai property so `httpRequest()` can reach them:
+    ```sh
+    pnpm install
+    ```
 
-- **Origin server** — your website origin (e.g., `news.wingorigin.dev`)
-- **MonetizationOS API** — `api.monetizationos.com`
+2. Run tests:
 
-### 6. Akamai Property Manager Configuration
+    ```sh
+    pnpm run test:run
+    ```
 
-The following steps must be completed in the [Akamai Control Center](https://control.akamai.com/) Property Manager UI.
+3. Build the EdgeWorkers bundle:
 
-#### 6.1 Create a Property
-
-Create a new property under **Property Manager** → **Properties** → **Create Property**. Assign the hostname that will serve proxied traffic (e.g., `akamai.wingdemo.dev`).
-
-#### 6.2 Configure the Default Rule
-
-In the property's **Default Rule**, add the following behaviors:
-
-**EdgeWorkers**
-- Enable: **On**
-- Identifier: select the EdgeWorker ID created for this proxy (e.g., `105618 (Tier 100) mos-edgeworker`)
-
-**Error Handling**
-- Continue on error: **On** — ensures requests still reach the origin if the EdgeWorker fails (note: this can lead to unprocessed responses being served)
-
-**Origin Server**
-- Origin Type: **Your Origin**
-- Origin Server Hostname: your website origin (e.g., `news.wingorigin.dev`)
-- Forward Host Header: **Origin Hostname**
-- Cache Key Hostname: **Incoming Host Header**
-- Send True Client IP Header: **Yes**
-- True Client IP Header Name: `True-Client-IP`
-
-#### 6.3 Create the MonetizationOS API Proxy Rule
-
-Add a new rule (e.g., named **MonetizationOS API Proxy**) with the following configuration:
-
-**Criteria**
-- Match: **Path** matches one of `/mos-api/*`
-
-**Behaviors**
-
-*Modify Outgoing Request Path*
-- Action: **Replace part of the incoming path**
-- Find: `/mos-api/`
-- Replace with: `/`
-- Occurrences: **First occurrence only**
-- Keep the query parameters: **Yes**
-
-*Origin Server*
-- Origin Type: **Your Origin**
-- Origin Server Hostname: `api.monetizationos.com`
-- Forward Host Header: **Origin Hostname**
-- Cache Key Hostname: **Origin Hostname**
-- Send True Client IP Header: **Yes**
-- True Client IP Header Name: `True-Client-IP`
-
-This rule strips the `/mos-api/` prefix and forwards the request directly to the MonetizationOS API, bypassing the EdgeWorker for API-to-API traffic.
-
-### 7. Build
-
-```bash
-npm run bundle
-```
+    ```sh
+    pnpm run bundle
+    ```
 
 This produces `monetizationos-akamai-proxy.tgz` containing `bundle.json` and `main.js`.
 
-## Local Testing with Akamai Sandbox
+---
 
-The [Akamai Sandbox](https://techdocs.akamai.com/sandbox/docs/test-edgeworkers-functions-sandbox) runs the real EdgeWorkers runtime locally — same `httpRequest`, `createResponse`, and `logger` modules as production. Your Property Manager variables and origin configuration are pulled from your actual Akamai property, so the behavior is identical to production.
+## Property Manager configuration
 
-### One-time setup
+Complete these steps in [Akamai Control Center](https://control.akamai.com/) Property Manager.
 
-Upload the bundle and create a sandbox:
+### Origins
+
+Configure origins so `httpRequest()` can reach:
+
+- **Your website origin** (hostname from `PMUSER_ORIGIN_URL`)
+- **MonetizationOS API** — `api.monetizationos.com` (used by the `/mos-api` rule below)
+
+### Default rule
+
+**EdgeWorkers**
+
+- Enable: **On**
+- Identifier: your EdgeWorker ID (upload the bundle first)
+
+**Error handling**
+
+- Continue on error: **On** (requests may reach the origin unprocessed if the worker fails)
+
+**Origin server**
+
+- Origin type: **Your Origin**
+- Origin server hostname: your website origin
+- Forward Host Header: **Origin Hostname**
+- Cache Key Hostname: **Incoming Host Header**
+
+### MonetizationOS API proxy rule
+
+Add a rule (e.g. **MonetizationOS API Proxy**) matching path `/mos-api/*`:
+
+**Modify Outgoing Request Path**
+
+- Find: `/mos-api/`
+- Replace with: `/`
+- First occurrence only; keep query parameters
+
+**Origin server**
+
+- Origin server hostname: `api.monetizationos.com`
+- Forward Host Header: **Origin Hostname**
+
+This strips `/mos-api/` and forwards to the MonetizationOS API origin for worker sub-requests and does not re-enter the EdgeWorker.
+
+---
+
+## Local testing with Akamai Sandbox
+
+The [Akamai Sandbox](https://techdocs.akamai.com/sandbox/docs/test-edgeworkers-functions-sandbox) runs the production EdgeWorkers runtime (`httpRequest`, `createResponse`, etc.) against your property configuration.
+
+One-time setup:
 
 ```bash
-npm run bundle
+pnpm run bundle
 akamai edgeworkers upload --bundle ./monetizationos-akamai-proxy.tgz <edgeworker-id>
 akamai sandbox create --hostname <your-hostname> --name mos-sandbox
 akamai sandbox start
 ```
 
-### Testing
-
-The sandbox listens on `http://127.0.0.1:9550`. Test with curl:
+Test (sandbox listens on `http://127.0.0.1:9550`):
 
 ```bash
 curl --header 'Host: <your-hostname>' http://127.0.0.1:9550/
 ```
 
-Or point your browser by adding an entry to `/etc/hosts`:
-
-```
-127.0.0.1  <your-hostname>
-```
-
-Then visit `http://<your-hostname>:9550/`.
-
-### Updating code
-
-After making changes, rebuild and push to the sandbox without restarting it:
+Update code without restarting the sandbox:
 
 ```bash
-npm run bundle && akamai sandbox update-edgeworker <edgeworker-id> ./monetizationos-akamai-proxy.tgz
+pnpm run bundle && akamai sandbox update-edgeworker <edgeworker-id> ./monetizationos-akamai-proxy.tgz
 ```
 
-### Debugging
-
-**View `responseProvider` debug info** (appended to the response body):
+**Debugging**
 
 ```bash
-curl --header 'Host: <your-hostname>' \
-     --header 'Pragma: akamai-x-ew-debug-rp' \
-     http://127.0.0.1:9550/
+# responseProvider debug (appended to body)
+curl --header 'Host: <your-hostname>' --header 'Pragma: akamai-x-ew-debug-rp' http://127.0.0.1:9550/
+
+# logger.log() output (response headers)
+curl -sD - --header 'Host: <your-hostname>' --header 'Pragma: akamai-x-ew-debug' http://127.0.0.1:9550/
+
+# httpRequest sub-requests
+curl -sD - --header 'Host: <your-hostname>' --header 'Pragma: akamai-x-ew-debug-subs' http://127.0.0.1:9550/
 ```
 
-**View `logger.log()` output** (in response headers, capped at 1024 bytes per handler):
+---
+
+## Deploy to production
 
 ```bash
-curl -sD - --header 'Host: <your-hostname>' \
-           --header 'Pragma: akamai-x-ew-debug' \
-           http://127.0.0.1:9550/
-```
-
-**Debug sub-requests** (`httpRequest` calls to origin and MonetizationOS API):
-
-```bash
-curl -sD - --header 'Host: <your-hostname>' \
-           --header 'Pragma: akamai-x-ew-debug-subs' \
-           http://127.0.0.1:9550/
-```
-
-## Deploy to Production
-
-### 1. Upload
-
-```bash
+pnpm run bundle
 akamai edgeworkers upload monetizationos-akamai-proxy.tgz <edgeworker-id>
-```
-
-### 2. Activate on staging
-
-```bash
 akamai edgeworkers activate <edgeworker-id> STAGING <version>
-```
-
-### 3. Activate on production
-
-```bash
 akamai edgeworkers activate <edgeworker-id> PRODUCTION <version>
 ```
 
-Make sure the property has the **EdgeWorkers** behavior enabled with `responseProvider` selected.
+Ensure the property **EdgeWorkers** behavior is enabled with `responseProvider` selected.
+
+---
+
+## Platform comparison
+
+| Feature | Cloudflare | Fastly | Akamai |
+|---|---|---|---|
+| Entry point | `export default { fetch() }` | `addEventListener("fetch", ...)` | `export async function responseProvider()` |
+| Configuration | `wrangler` bindings / vars | Config Store + Secret Store | Property Manager `PMUSER_*` variables |
+| HTML rewriting | `HTMLRewriter` | `HTMLRewritingStream` | `HtmlRewritingStream` |
+| Outbound requests | `fetch()` | `fetch()` with `{ backend }` | `httpRequest()` |
+| MOS API reachability | Direct to `MONETIZATION_OS_HOST` | Backend `monetization_api` | Property path prefix `/mos-api` |

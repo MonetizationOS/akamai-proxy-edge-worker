@@ -2,20 +2,26 @@
     "type": "module",
     "private": true,
     "packageManager": "pnpm@10.29.2",
+    "scripts": {
+        "prebuild": "tsc --noEmit",
+        "build": "rollup -c",
+        "bundle": "pnpm run build && cp bundle.json dist/ && cd dist && tar -czf ../monetizationos-akamai-proxy.tgz bundle.json main.js",
+        "deploy": "pnpm run bundle && echo 'Upload monetizationos-akamai-proxy.tgz via Akamai Control Center or CLI'",
+        "test": "vitest",
+        "test:run": "vitest run"
+    },
     "dependencies": {
-        "cookie": "^1.1.1"
+        "@monetizationos/proxy": "1.4.0"
     },
     "devDependencies": {
         "@rollup/plugin-commonjs": "^29.0.2",
         "@rollup/plugin-node-resolve": "^16.0.3",
+        "@rollup/plugin-typescript": "^12.3.0",
+        "@types/node": "^25.9.1",
         "html-rewriter-wasm": "^0.4.1",
         "rollup": "^4.59.0",
+        "tslib": "^2.8.1",
+        "typescript": "^6.0.3",
         "vitest": "~4.1.0"
-    },
-    "scripts": {
-        "build": "rollup -c",
-        "bundle": "pnpm run build && cp bundle.json dist/ && cd dist && tar -czf ../monetizationos-akamai-proxy.tgz bundle.json main.js",
-        "deploy": "pnpm run bundle && echo 'Upload monetizationos-akamai-proxy.tgz via Akamai Control Center or CLI'",
-        "test": "vitest"
     }
 }
