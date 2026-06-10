@@ -1,8 +1,8 @@
 {
     "compilerOptions": {
-        "types": ["node"],
+        "types": ["node", "akamai-edgeworkers"],
         "target": "esnext",
-        "lib": ["esnext"],
+        "lib": ["esnext", "dom"],
         "module": "esnext",
         "moduleResolution": "bundler",
         "resolveJsonModule": true,

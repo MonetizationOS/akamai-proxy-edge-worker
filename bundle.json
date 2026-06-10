@@ -1,5 +1,5 @@
 {
-    "edgeworker-version": "1.1.1",
+    "edgeworker-version": "1.1.22",
     "description": "MonetizationOS Proxy Worker for Akamai EdgeWorkers",
     "api-version": "1.0"
 }

@@ -11,12 +11,13 @@
         "test:run": "vitest run"
     },
     "dependencies": {
-        "@monetizationos/proxy": "1.4.0"
+        "@monetizationos/proxy": "1.4.2"
     },
     "devDependencies": {
         "@rollup/plugin-commonjs": "^29.0.2",
         "@rollup/plugin-node-resolve": "^16.0.3",
         "@rollup/plugin-typescript": "^12.3.0",
+        "@types/akamai-edgeworkers": "^1.1.19",
         "@types/node": "^25.9.1",
         "html-rewriter-wasm": "^0.4.1",
         "rollup": "^4.59.0",
