@@ -14,6 +14,12 @@ declare module 'create-response' {
     }
 }
 
+declare module 'streams' {
+    export const ReadableStream: typeof globalThis.ReadableStream
+    export const WritableStream: typeof globalThis.WritableStream
+    export const TransformStream: typeof globalThis.TransformStream
+}
+
 declare module 'html-rewriter' {
     export interface AkamaiHtmlElement {
         getAttribute(name: string): string | null

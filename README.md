@@ -31,7 +31,7 @@ Set these in your Akamai property using the **Set Variable** behavior with the `
 | `PMUSER_MOS_ENDPOINTS_PREFIX` | `MONETIZATION_OS_ENDPOINTS_PREFIX` | Path prefix for proxied custom endpoints. Defaults to `/mos-endpoints/` in the worker config. |
 | `PMUSER_MOS_API_PREFIX` | — | Path prefix for the Property Manager rule that forwards API sub-requests to `api.monetizationos.com`. Defaults to `/mos-api`. |
 
-`httpRequest()` only reaches hostnames served through your Akamai property. The worker calls the MonetizationOS API at `{scheme}://{host}{PMUSER_MOS_API_PREFIX}/api/v1/...`, which your property must map to `api.monetizationos.com` (see [Property Manager configuration](#property-manager-configuration) below).
+`httpRequest()` only reaches hostnames served through your Akamai property. API sub-requests use relative URLs such as `{PMUSER_MOS_API_PREFIX}/api/v1/...` (default `/mos-api/api/v1/...`), which your property must map to `api.monetizationos.com` (see [Property Manager configuration](#property-manager-configuration) below).
 
 ## Optional: paths that skip surface decisions
 
@@ -46,6 +46,14 @@ Example Property Manager value:
 ```json
 {"X-Api-Key": "secret", "X-Custom": "my-value"}
 ```
+
+## Runtime note: Web Platform polyfills
+
+This project uses Akamai's official TypeScript bindings (`@types/akamai-edgeworkers`) for EdgeWorkers request objects and built-in modules (`http-request`, `streams`, `html-rewriter`, `create-response`). Those bindings are compile-time only; they do not add runtime globals.
+
+Akamai EdgeWorkers do not provide the standard Web Platform globals that `@monetizationos/proxy` expects (`URL`, `Headers`, `Request`, `Response`, `ReadableStream`, `WritableStream`, `TransformStream`, `TextEncoder`, `TextDecoder`). The worker installs minimal polyfills at startup via `src/installAkamaiGlobals.ts` before the shared core runs. Avoid top-level use of those globals in worker code — Akamai static validation evaluates the bundle at upload time.
+
+If the response body shows `ReferenceError: … is not defined`, rebuild and redeploy — that means the active EdgeWorker version predates the polyfill for that global.
 
 ## HTML rewriting notes
 
@@ -216,7 +224,7 @@ curl -sD - --header 'Host: <your-hostname>' --header 'Pragma: akamai-x-ew-debug-
 
 ```bash
 pnpm run bundle
-akamai edgeworkers upload monetizationos-akamai-proxy.tgz <edgeworker-id>
+akamai edgeworkers upload --bundle monetizationos-akamai-proxy.tgz <edgeworker-id>
 akamai edgeworkers activate <edgeworker-id> STAGING <version>
 akamai edgeworkers activate <edgeworker-id> PRODUCTION <version>
 ```

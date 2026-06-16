@@ -31,6 +31,34 @@ describe('MonetizationOS Proxy', () => {
         vi.clearAllMocks()
     })
 
+    it('streams binary origin assets without text decoding', async () => {
+        const binary = new Uint8Array([0x89, 0x50, 0x4e, 0x47])
+        const bodyStream = new ReadableStream({
+            start(controller) {
+                controller.enqueue(binary)
+                controller.close()
+            },
+        })
+        vi.mocked(httpRequest).mockResolvedValue({
+            status: 200,
+            body: bodyStream,
+            getHeader: (name: string) => (name.toLowerCase() === 'content-type' ? ['image/png'] : null),
+            getHeaders: () => ({ 'Content-Type': ['image/png'] }),
+            text: async () => {
+                throw new Error('text() should not be called for binary responses')
+            },
+            json: async () => {
+                throw new Error('json() should not be called for binary responses')
+            },
+        })
+
+        const req = createMockRequest({ path: '/image.png' })
+        const res = await responseProvider(req)
+        expect(res.status).toBe(200)
+        expect(typeof res.body).not.toBe('string')
+        expect(res.body).toBe(bodyStream)
+    })
+
     it('proxies GET JSON requests', async () => {
         mockHttpRequest({ responseBody: { success: true } })
 
@@ -39,6 +67,34 @@ describe('MonetizationOS Proxy', () => {
         expect(res.status).toBe(200)
         const body = typeof res.body === 'string' ? res.body : await getBodyText(res.body)
         expect(JSON.parse(body).success).toBe(true)
+    })
+
+    it('routes origin subrequests through the parent property with relative URLs', async () => {
+        mockHttpRequest({ responseBody: { success: true } })
+
+        const req = createMockRequest({ path: '/hello/world', query: 'x=1&y=two' })
+        await responseProvider(req)
+
+        expect(vi.mocked(httpRequest).mock.calls[0]?.[0]).toBe('/hello/world?x=1&y=two')
+    })
+
+    it('does not forward host or debug pragma headers on origin subrequests', async () => {
+        mockHttpRequest({ responseBody: { success: true } })
+
+        const req = createMockRequest({
+            path: '/',
+            headers: {
+                host: ['akamai.wingdemo.dev'],
+                pragma: ['akamai-x-ew-debug-rp, akamai-x-ew-debug-subs'],
+                accept: ['text/html'],
+            },
+        })
+        await responseProvider(req)
+
+        const options = vi.mocked(httpRequest).mock.calls[0]?.[1] as { headers?: Record<string, string[]> }
+        expect(options?.headers?.host).toBeUndefined()
+        expect(options?.headers?.pragma).toBeUndefined()
+        expect(options?.headers?.accept).toEqual(['text/html'])
     })
 
     it('proxies POST requests with body', async () => {
@@ -60,7 +116,7 @@ describe('MonetizationOS Proxy', () => {
         const text = typeof res.body === 'string' ? res.body : await getBodyText(res.body)
         expect(text).toBe('response')
         expect(
-            vi.mocked(httpRequest).mock.calls.some(([url]: [string]) => String(url).includes('/mos-api/api/v1/envs/')),
+            vi.mocked(httpRequest).mock.calls.some(([url]: [string]) => String(url).startsWith('/mos-api/api/v1/envs/')),
         ).toBe(
             true,
         )

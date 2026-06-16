@@ -26,18 +26,20 @@ export type Env = {
  * with the PMUSER_ prefix. See README.md for the full list.
  */
 export function loadEnv(request: AkamaiRequest): Env {
+    const variable = (name: string): string => request.getVariable(name) ?? ''
+
     return {
-        ORIGIN_URL: request.getVariable('PMUSER_ORIGIN_URL'),
-        SURFACE_SLUG: request.getVariable('PMUSER_SURFACE_SLUG'),
-        AUTHENTICATED_USER_JWT_COOKIE_NAME: request.getVariable('PMUSER_AUTH_JWT_COOKIE'),
-        ANONYMOUS_SESSION_COOKIE_NAME: request.getVariable('PMUSER_ANON_COOKIE'),
-        INJECT_SCRIPT_URL: request.getVariable('PMUSER_INJECT_SCRIPT_URL'),
-        MONETIZATION_OS_HOST: request.getVariable('PMUSER_MOS_HOST'),
-        MONETIZATION_OS_ENDPOINTS_PREFIX: request.getVariable('PMUSER_MOS_ENDPOINTS_PREFIX'),
-        MONETIZATION_OS_API_PATH_PREFIX: request.getVariable('PMUSER_MOS_API_PREFIX'),
-        MONETIZATION_OS_SECRET_KEY: request.getVariable('PMUSER_MOS_SECRET_KEY'),
-        SURFACE_DECISIONS_IGNORE_PATHS: request.getVariable('PMUSER_SURFACE_DECISIONS_IGNORE_PATHS'),
-        ORIGIN_REQUEST_HEADERS: parseOriginRequestHeaders(request.getVariable('PMUSER_ORIGIN_REQUEST_HEADERS')),
+        ORIGIN_URL: variable('PMUSER_ORIGIN_URL'),
+        SURFACE_SLUG: variable('PMUSER_SURFACE_SLUG'),
+        AUTHENTICATED_USER_JWT_COOKIE_NAME: variable('PMUSER_AUTH_JWT_COOKIE'),
+        ANONYMOUS_SESSION_COOKIE_NAME: variable('PMUSER_ANON_COOKIE'),
+        INJECT_SCRIPT_URL: variable('PMUSER_INJECT_SCRIPT_URL'),
+        MONETIZATION_OS_HOST: variable('PMUSER_MOS_HOST'),
+        MONETIZATION_OS_ENDPOINTS_PREFIX: variable('PMUSER_MOS_ENDPOINTS_PREFIX'),
+        MONETIZATION_OS_API_PATH_PREFIX: variable('PMUSER_MOS_API_PREFIX'),
+        MONETIZATION_OS_SECRET_KEY: variable('PMUSER_MOS_SECRET_KEY'),
+        SURFACE_DECISIONS_IGNORE_PATHS: variable('PMUSER_SURFACE_DECISIONS_IGNORE_PATHS'),
+        ORIGIN_REQUEST_HEADERS: parseOriginRequestHeaders(variable('PMUSER_ORIGIN_REQUEST_HEADERS')),
     }
 }
 

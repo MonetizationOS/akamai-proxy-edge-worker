@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@monetizationos/proxy':
-        specifier: 1.4.0
-        version: 1.4.0
+        specifier: 1.4.2
+        version: 1.4.2
     devDependencies:
       '@rollup/plugin-commonjs':
         specifier: ^29.0.2
@@ -21,6 +21,9 @@ importers:
       '@rollup/plugin-typescript':
         specifier: ^12.3.0
         version: 12.3.0(rollup@4.59.0)(tslib@2.8.1)(typescript@6.0.3)
+      '@types/akamai-edgeworkers':
+        specifier: ^1.1.19
+        version: 1.1.19
       '@types/node':
         specifier: ^25.9.1
         version: 25.9.1
@@ -54,8 +57,8 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
 
-  '@monetizationos/proxy@1.4.0':
-    resolution: {integrity: sha512-g4vbkcfmAnxM0NQAKRnjY88RELUsUhudUjXvXxOAQvePZ5oHHEb4UKcA8ymGl4IiWT5LuuFUVmQIBXv1dkqB8g==}
+  '@monetizationos/proxy@1.4.2':
+    resolution: {integrity: sha512-OqlAFVVw/vQcS4q96t4ZUEEFZNVIfxRl8FM4ZS+X+TuWnVA8JLJDpE8LicVwhoWJjoYcuYucz4nJhSMJRFJFVw==}
     engines: {node: '>=22'}
 
   '@napi-rs/wasm-runtime@1.1.1':
@@ -349,6 +352,9 @@ packages:
 
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
+
+  '@types/akamai-edgeworkers@1.1.19':
+    resolution: {integrity: sha512-kRuoq+WsbFsS+/4BE+IUcoUVXGFBARRP9UfXk1SJqu+URGoNmvkNxjGEuFTYCvYs+w9Z8xcguYYOtYXRss1A+w==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -730,7 +736,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@monetizationos/proxy@1.4.0':
+  '@monetizationos/proxy@1.4.2':
     dependencies:
       cookie: 1.1.1
 
@@ -914,6 +920,8 @@ snapshots:
     dependencies:
       tslib: 2.8.1
     optional: true
+
+  '@types/akamai-edgeworkers@1.1.19': {}
 
   '@types/chai@5.2.3':
     dependencies:

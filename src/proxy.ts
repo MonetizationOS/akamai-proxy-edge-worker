@@ -1,15 +1,16 @@
 import { MOSProxyBuilder, type MOSProxy } from '@monetizationos/proxy'
+import type { AkamaiRequest } from './akamaiRequest'
+import { buildPropertyBaseUrl, getClientRelativeUrl } from './akamaiRequest'
 import type { Env } from './env'
-import { httpRequestAsFetcher } from './akamaiHttp'
-import { buildPropertyBaseUrl } from './akamaiRequest'
+import { buildOriginSubrequestOptions, httpRequestAsFetcher } from './akamaiHttp'
 import { akamaiHtmlRewriter } from './akamaiHtmlRewriter'
 
-export function createProxy(env: Env, propertyBaseUrl: string): MOSProxy {
+export function createProxy(env: Env, akamaiRequest: AkamaiRequest): MOSProxy {
     // mos-proxy builds API URLs on MONETIZATION_OS_HOST (e.g. api.monetizationos.com). Cloudflare/Fastly
-    // fetch that host directly (Fastly uses a named backend). Akamai httpRequest() only reaches origins on
-    // this property, so we rewrite API sub-requests to {propertyHost}{apiPathPrefix}/api/v1/... and rely on
-    // a Property Manager rule that forwards /mos-api/* to api.monetizationos.com (see README).
+    // fetch that host directly (Fastly uses a named backend). Akamai httpRequest() only reaches hostnames on
+    // this property, so sub-requests must use the property hostname (see README /mos-api rule).
     const apiPathPrefix = env.MONETIZATION_OS_API_PATH_PREFIX || '/mos-api'
+    const propertyBaseUrl = buildPropertyBaseUrl(akamaiRequest)
 
     return new MOSProxyBuilder()
         .withConfig({
@@ -24,22 +25,30 @@ export function createProxy(env: Env, propertyBaseUrl: string): MOSProxy {
             surfaceDecisionsIgnorePaths: env.SURFACE_DECISIONS_IGNORE_PATHS,
             originRequestHeaders: env.ORIGIN_REQUEST_HEADERS ?? {},
         })
-        .withOriginFetcher(httpRequestAsFetcher())
+        // mos-proxy builds origin URLs on ORIGIN_URL for link rewriting. httpRequest() must use a relative URL
+        // resolved against the parent client request (Akamai docs: httpRequest(request.url)). Absolute URLs
+        // built from request.host break staging tests via edgesuite-staging.net when Host is overridden.
+        .withOriginFetcher(
+            httpRequestAsFetcher(
+                () => buildOriginSubrequestUrl(akamaiRequest, env.ORIGIN_URL || 'https://example.local'),
+                (request) => buildOriginSubrequestOptions(akamaiRequest, env.ORIGIN_REQUEST_HEADERS ?? {}, request),
+            ),
+        )
         // @monetizationos/proxy only builds URLs on mosHost and calls apiFetcher — it does not know about
         // Akamai httpRequest() or property path prefixes. Fastly does the same via fetch(..., { backend }).
         .withApiFetcher(
             httpRequestAsFetcher((request) => {
                 const url = new URL(request.url)
                 const prefix = apiPathPrefix.startsWith('/') ? apiPathPrefix : `/${apiPathPrefix}`
-                return `${propertyBaseUrl}${prefix}${url.pathname}${url.search}`
+                return `${prefix}${url.pathname}${url.search}`
             }),
         )
         .withHtmlRewriter(akamaiHtmlRewriter)
         .withClientMetadata({
-            build(request) {
+            build() {
                 return {
                     akamai: {
-                        host: buildPropertyBaseUrlFromRequest(request),
+                        host: propertyBaseUrl,
                     },
                 }
             },
@@ -47,7 +56,7 @@ export function createProxy(env: Env, propertyBaseUrl: string): MOSProxy {
         .build()
 }
 
-function buildPropertyBaseUrlFromRequest(request: Request): string {
-    const url = new URL(request.url)
-    return `${url.protocol}//${url.host}`
+function buildOriginSubrequestUrl(request: AkamaiRequest, originUrl: string): string {
+    const originBasePath = new URL(originUrl).pathname.replace(/\/$/, '')
+    return `${originBasePath}${getClientRelativeUrl(request)}`
 }
