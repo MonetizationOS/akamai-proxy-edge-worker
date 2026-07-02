@@ -37,6 +37,18 @@ Set these in your Akamai property using the **Set Variable** behavior with the `
 
 `PMUSER_SURFACE_DECISIONS_IGNORE_PATHS` is a comma-separated list of regular expressions. Matching pathnames still proxy to the origin and rewrite origin links, but skip MonetizationOS surface decisions and component transforms.
 
+## Optional: cookies forwarded to surface decisions
+
+`PMUSER_SURFACE_DECISIONS_COOKIES` is a comma-separated list of regular expressions. Cookie names matching any pattern are forwarded to the MonetizationOS surface-decisions API as `http.cookies`. Matching cookies are read from the incoming request `Cookie` header and from the origin response `Set-Cookie` headers; when the same name appears in both, the origin value is used. When unset or when no cookies match, `http.cookies` is omitted from the surface-decisions payload.
+
+Example Property Manager value:
+
+```
+^__session$, ^theme$, ^mos_
+```
+
+Each pattern is a regex tested against the cookie **name**. Plain names like `^__session$` match exactly; prefixes like `^mos_` match any cookie whose name starts with `mos_`.
+
 ## Optional: headers sent to the origin
 
 `PMUSER_ORIGIN_REQUEST_HEADERS` adds or overrides outgoing headers on every upstream `httpRequest()` to the origin. Set it to a JSON object mapping header names to values. Leave it empty or omit it when no extra headers are needed.

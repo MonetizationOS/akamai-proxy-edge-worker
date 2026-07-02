@@ -15,6 +15,7 @@ export type Env = {
     MONETIZATION_OS_API_PATH_PREFIX: string
     MONETIZATION_OS_SECRET_KEY: string
     SURFACE_DECISIONS_IGNORE_PATHS?: string
+    SURFACE_DECISIONS_COOKIES?: string
     ORIGIN_REQUEST_HEADERS?: Record<string, string>
 }
 
@@ -39,6 +40,7 @@ export function loadEnv(request: AkamaiRequest): Env {
         MONETIZATION_OS_API_PATH_PREFIX: variable('PMUSER_MOS_API_PREFIX'),
         MONETIZATION_OS_SECRET_KEY: variable('PMUSER_MOS_SECRET_KEY'),
         SURFACE_DECISIONS_IGNORE_PATHS: variable('PMUSER_SURFACE_DECISIONS_IGNORE_PATHS'),
+        SURFACE_DECISIONS_COOKIES: variable('PMUSER_SURFACE_DECISIONS_COOKIES'),
         ORIGIN_REQUEST_HEADERS: parseOriginRequestHeaders(variable('PMUSER_ORIGIN_REQUEST_HEADERS')),
     }
 }

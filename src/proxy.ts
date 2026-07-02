@@ -23,6 +23,7 @@ export function createProxy(env: Env, akamaiRequest: AkamaiRequest): MOSProxy {
             authenticatedUserJwtCookieName: env.AUTHENTICATED_USER_JWT_COOKIE_NAME,
             injectScriptUrl: env.INJECT_SCRIPT_URL || undefined,
             surfaceDecisionsIgnorePaths: env.SURFACE_DECISIONS_IGNORE_PATHS,
+            surfaceDecisionsCookies: env.SURFACE_DECISIONS_COOKIES,
             originRequestHeaders: env.ORIGIN_REQUEST_HEADERS ?? {},
         })
         // mos-proxy builds origin URLs on ORIGIN_URL for link rewriting. httpRequest() must use a relative URL
