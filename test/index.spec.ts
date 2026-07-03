@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { responseProvider } from '../src/main'
+import { loadEnv } from '../src/env'
 import { httpRequest } from 'http-request'
 import {
     createMockRequest,
@@ -23,6 +24,7 @@ vi.mock('../src/env', () => ({
         MONETIZATION_OS_API_PATH_PREFIX: '/mos-api',
         MONETIZATION_OS_SECRET_KEY: 'sk_test_123_key.payload',
         SURFACE_DECISIONS_IGNORE_PATHS: '',
+        SURFACE_DECISIONS_COOKIES: '',
     }),
 }))
 
@@ -128,6 +130,32 @@ describe('MonetizationOS Proxy', () => {
         const req = createMockRequest()
         const res = await responseProvider(req)
         expect(res.status).toBe(200)
+    })
+
+    it('forwards matching cookies to surface decisions when SURFACE_DECISIONS_COOKIES is set', async () => {
+        vi.mocked(loadEnv).mockReturnValueOnce({
+            ...testEnv,
+            SURFACE_DECISIONS_COOKIES: '^jwt-cookie$, ^theme$',
+        })
+        mockHttpRequest({
+            responseHeaders: { 'Set-Cookie': ['theme=from-origin; Path=/'] },
+        })
+
+        const req = createMockRequest({
+            headers: { cookie: ['jwt-cookie=request-jwt; theme=old; ignored=1'] },
+        })
+        await responseProvider(req)
+
+        const decisionsCall = vi.mocked(httpRequest).mock.calls.find(([url]) =>
+            String(url).includes('/api/v1/surface-decisions'),
+        )
+        expect(decisionsCall).toBeDefined()
+        const options = decisionsCall![1] as { body?: string }
+        const body = JSON.parse(options.body!)
+        expect(body.http.cookies).toEqual({
+            'jwt-cookie': 'request-jwt',
+            theme: 'from-origin',
+        })
     })
 
     it('preserves 404 origin HTTP status code for HTML responses', async () => {

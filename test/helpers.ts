@@ -14,6 +14,7 @@ export const testEnv = {
     MONETIZATION_OS_API_PATH_PREFIX: '/mos-api',
     MONETIZATION_OS_SECRET_KEY: 'sk_test_123_key.payload',
     SURFACE_DECISIONS_IGNORE_PATHS: '',
+    SURFACE_DECISIONS_COOKIES: '',
 }
 
 export const surfaceDecisionsResponse: SurfaceDecisionResponse = {
