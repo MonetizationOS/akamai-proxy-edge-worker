@@ -158,6 +158,19 @@ describe('MonetizationOS Proxy', () => {
         })
     })
 
+    it('sends the Akamai client IP to surface decisions', async () => {
+        mockHttpRequest()
+
+        await responseProvider(createMockRequest({ clientIp: '203.0.113.7' }))
+
+        const decisionsCall = vi.mocked(httpRequest).mock.calls.find(([url]) =>
+            String(url).includes('/api/v1/surface-decisions'),
+        )
+        expect(decisionsCall).toBeDefined()
+        const options = decisionsCall![1] as { body?: string }
+        expect(JSON.parse(options.body!).http.clientIP).toBe('203.0.113.7')
+    })
+
     it('preserves 404 origin HTTP status code for HTML responses', async () => {
         mockHttpRequest({
             status: 404,

@@ -81,6 +81,7 @@ export function createMockRequest({
     query = '',
     body = null as string | null,
     headers = {} as Record<string, string[]>,
+    clientIp = '',
 }: {
     path?: string
     scheme?: string
@@ -89,6 +90,7 @@ export function createMockRequest({
     query?: string
     body?: string | null
     headers?: Record<string, string[]>
+    clientIp?: string
 } = {}): AkamaiRequest {
     const url = `${path}${query ? `?${query}` : ''}`
 
@@ -100,6 +102,7 @@ export function createMockRequest({
         query,
         url,
         body,
+        clientIp,
         getHeader: (name) => headers[name.toLowerCase()] ?? null,
         getHeaders: () => headers,
         getVariable: () => '',
