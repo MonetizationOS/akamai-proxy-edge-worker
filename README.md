@@ -136,7 +136,7 @@ Then retry your command. You can also refresh the package with `akamai update ed
     pnpm run test:run
     ```
 
-    EdgeWorkers is bare V8, so the tests remove every global a bare V8 context lacks (`URL`, `TextDecoder`, streams, timers, `Promise.withResolvers` and so on) and the worker runs on its polyfills as in production.
+    EdgeWorkers is bare V8, so the tests remove every global a bare V8 context lacks (`URL`, `TextDecoder`, streams, timers, `Promise.withResolvers` and so on) and the worker runs on its polyfills as in production. `test/bundle.spec.ts` also runs the rollup bundle in a fresh V8 context with `eval` disabled.
 
 3. Build the EdgeWorkers bundle:
 
