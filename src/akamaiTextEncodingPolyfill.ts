@@ -60,9 +60,47 @@ export class AkamaiTextEncoder {
     }
 }
 
+/** Bytes in the UTF-8 sequence a lead byte starts. */
+function sequenceLength(byte: number): number {
+    if (byte >= 0xf0) return 4
+    if (byte >= 0xe0) return 3
+    if (byte >= 0xc0) return 2
+    return 1
+}
+
+/** Length of `bytes` without a trailing sequence a later chunk completes. */
+function completeLength(bytes: Uint8Array): number {
+    for (let i = bytes.length - 1; i >= Math.max(0, bytes.length - 3); i--) {
+        if ((bytes[i] & 0xc0) !== 0x80) {
+            return i + sequenceLength(bytes[i]) > bytes.length ? i : bytes.length
+        }
+    }
+    return bytes.length
+}
+
+function toBytes(input: AllowSharedBufferSource | undefined): Uint8Array {
+    if (!input) return new Uint8Array(0)
+    if (ArrayBuffer.isView(input)) return new Uint8Array(input.buffer, input.byteOffset, input.byteLength)
+    return new Uint8Array(input)
+}
+
 export class AkamaiTextDecoder {
-    decode(input: Uint8Array): string {
-        return decodeUtf8(input)
+    // A sequence split across chunks, held until the next `decode`
+    private pending: Uint8Array = new Uint8Array(0)
+
+    decode(input?: AllowSharedBufferSource, options?: { stream?: boolean }): string {
+        const chunk = toBytes(input)
+        let bytes = chunk
+        if (this.pending.length) {
+            bytes = new Uint8Array(this.pending.length + chunk.length)
+            bytes.set(this.pending)
+            bytes.set(chunk, this.pending.length)
+        }
+        const end = completeLength(bytes)
+        this.pending = options?.stream ? bytes.slice(end) : new Uint8Array(0)
+        // A sequence the input ends inside is never completed once the stream ends
+        const truncated = !options?.stream && end < bytes.length ? '�' : ''
+        return decodeUtf8(bytes.subarray(0, end)) + truncated
     }
 }
 
