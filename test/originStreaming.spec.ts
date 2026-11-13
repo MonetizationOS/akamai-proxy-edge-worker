@@ -1,3 +1,4 @@
+import { clearTimeout, setTimeout } from 'node:timers'
 import type { SurfaceDecisionResponse } from '@monetizationos/proxy'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { httpRequest } from 'http-request'

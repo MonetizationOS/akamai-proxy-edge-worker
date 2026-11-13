@@ -1,11 +1,14 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { installPromisePolyfill } from '../src/akamaiPromisePolyfill'
+import { nativeWithResolvers } from './edgeWorkersGlobals'
 
 describe('Akamai Promise polyfill', () => {
-    const nativeWithResolvers = Promise.withResolvers
+    beforeEach(() => {
+        Promise.withResolvers = nativeWithResolvers
+    })
 
     afterEach(() => {
-        Promise.withResolvers = nativeWithResolvers
+        Reflect.deleteProperty(Promise, 'withResolvers')
     })
 
     it('installs Promise.withResolvers when missing', async () => {

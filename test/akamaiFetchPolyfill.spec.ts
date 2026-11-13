@@ -1,3 +1,4 @@
+import '../src/installAkamaiGlobals'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AkamaiHeaders, AkamaiRequest, AkamaiResponse, installFetchPolyfill } from '../src/akamaiFetchPolyfill'
 

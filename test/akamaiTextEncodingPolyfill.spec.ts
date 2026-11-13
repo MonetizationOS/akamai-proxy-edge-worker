@@ -1,9 +1,6 @@
+import { TextDecoder as NativeTextDecoder, TextEncoder as NativeTextEncoder } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AkamaiTextDecoder, AkamaiTextEncoder, installTextEncodingPolyfill } from '../src/akamaiTextEncodingPolyfill'
-
-// Captured before the tests below delete the globals
-const NativeTextDecoder = globalThis.TextDecoder
-const NativeTextEncoder = globalThis.TextEncoder
 
 describe('Akamai TextEncoding polyfill', () => {
     afterEach(() => {
