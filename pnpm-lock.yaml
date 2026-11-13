@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@monetizationos/proxy':
-        specifier: 1.4.3
-        version: 1.4.3
+        specifier: 1.11.0
+        version: 1.11.0
     devDependencies:
       '@rollup/plugin-commonjs':
         specifier: ^29.0.2
@@ -57,8 +57,8 @@ packages:
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
 
-  '@monetizationos/proxy@1.4.3':
-    resolution: {integrity: sha512-nSzTbQVLzXripFF8bzXRhZ2nqZVIQLwZINspE/HARBeBv2fzm0YQhqvEXnqmgoMHAZjxOPhkw8E3ELRKnlP2dg==}
+  '@monetizationos/proxy@1.11.0':
+    resolution: {integrity: sha512-WKT4juXrk164jQFJ1HCbfXAhJNQlILXk4ruFhLGbRYMNBah3X6clfN8X+BwBd61hccN1qKHtiWjieZVdYL/Jow==}
     engines: {node: '>=22'}
 
   '@napi-rs/wasm-runtime@1.1.1':
@@ -736,7 +736,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
-  '@monetizationos/proxy@1.4.3':
+  '@monetizationos/proxy@1.11.0':
     dependencies:
       cookie: 1.1.1
 
