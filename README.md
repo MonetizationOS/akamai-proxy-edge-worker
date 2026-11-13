@@ -63,7 +63,7 @@ Example Property Manager value:
 
 This project uses Akamai's official TypeScript bindings (`@types/akamai-edgeworkers`) for EdgeWorkers request objects and built-in modules (`http-request`, `streams`, `html-rewriter`, `create-response`). Those bindings are compile-time only; they do not add runtime globals.
 
-Akamai EdgeWorkers do not provide the standard Web Platform globals that `@monetizationos/proxy` expects (`URL`, `Headers`, `Request`, `Response`, `ReadableStream`, `WritableStream`, `TransformStream`, `TextEncoder`, `TextDecoder`). The worker installs minimal polyfills at startup via `src/installAkamaiGlobals.ts` before the shared core runs. Avoid top-level use of those globals in worker code — Akamai static validation evaluates the bundle at upload time.
+Akamai EdgeWorkers do not provide the standard Web Platform globals that `@monetizationos/proxy` expects (`URL`, `Headers`, `Request`, `Response`, `ReadableStream`, `WritableStream`, `TransformStream`, `TextEncoder`, `TextDecoder`). The worker installs minimal polyfills at startup via `src/installAkamaiGlobals.ts` before the shared core runs. It also installs `Promise.withResolvers` when the runtime lacks it. Avoid top-level use of those globals in worker code — Akamai static validation evaluates the bundle at upload time.
 
 If the response body shows `ReferenceError: … is not defined`, rebuild and redeploy — that means the active EdgeWorker version predates the polyfill for that global.
 
