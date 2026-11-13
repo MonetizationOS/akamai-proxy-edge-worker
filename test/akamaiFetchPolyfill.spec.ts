@@ -41,6 +41,32 @@ describe('Akamai Fetch polyfill', () => {
         expect(await cloned.text()).toBe('{"ok":true}')
     })
 
+    it('clones a streamed body into two full copies', async () => {
+        const response = new AkamaiResponse(
+            new ReadableStream<Uint8Array>({
+                start(controller) {
+                    controller.enqueue(new TextEncoder().encode('<html>'))
+                    controller.enqueue(new TextEncoder().encode('</html>'))
+                    controller.close()
+                },
+            }),
+            { status: 200 },
+        )
+
+        const cloned = response.clone()
+        expect(await response.text()).toBe('<html></html>')
+        expect(await cloned.text()).toBe('<html></html>')
+    })
+
+    it('throws rather than clone a stream it cannot tee to an empty body', () => {
+        const stream = new ReadableStream<Uint8Array>()
+        Object.defineProperty(stream, 'tee', { value: undefined })
+        const response = new AkamaiResponse(stream, { status: 200 })
+
+        expect(() => response.clone()).toThrow(TypeError)
+        expect(response.body).toBe(stream)
+    })
+
     it('decodes UTF-8 correctly when stream chunks split multibyte characters', async () => {
         const bytes = new TextEncoder().encode('hello 🌍')
         const stream = new ReadableStream<Uint8Array>({
