@@ -100,6 +100,16 @@ describe('MonetizationOS Proxy', () => {
         expect(options?.headers?.accept).toEqual(['text/html'])
     })
 
+    it('sends the viewer host and protocol to the origin as X-Forwarded headers', async () => {
+        mockHttpRequest({ responseBody: { success: true } })
+
+        await responseProvider(createMockRequest({ scheme: 'http', host: 'news.example' }))
+
+        const options = vi.mocked(httpRequest).mock.calls[0]?.[1] as { headers?: Record<string, string[]> }
+        expect(options?.headers?.['x-forwarded-host']).toEqual(['news.example'])
+        expect(options?.headers?.['x-forwarded-proto']).toEqual(['http'])
+    })
+
     it('proxies POST requests with body', async () => {
         mockHttpRequest({ responseBody: { success: true } })
 

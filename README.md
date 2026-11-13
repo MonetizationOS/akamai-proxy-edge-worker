@@ -53,6 +53,8 @@ Each pattern is a regex tested against the cookie **name**. Plain names like `^_
 
 `PMUSER_ORIGIN_REQUEST_HEADERS` adds or overrides outgoing headers on every upstream `httpRequest()` to the origin. Set it to a JSON object mapping header names to values. Leave it empty or omit it when no extra headers are needed.
 
+Origin requests carry the viewer's host and protocol as `X-Forwarded-Host` and `X-Forwarded-Proto`, so the origin can build URLs on the public domain. `PMUSER_ORIGIN_REQUEST_HEADERS` can override either.
+
 Example Property Manager value:
 
 ```json

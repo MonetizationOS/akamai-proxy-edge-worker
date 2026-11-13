@@ -21,6 +21,9 @@ const ORIGIN_FORWARD_HEADERS = [
     'authorization',
 ] as const
 
+/** Set by mos-proxy on the origin request from the viewer's host and protocol. */
+const VIEWER_FORWARD_HEADERS = ['x-forwarded-host', 'x-forwarded-proto'] as const
+
 /** Never forward these on httpRequest() sub-requests (hop-by-hop, Akamai-internal, debug). */
 const SKIP_SUBREQUEST_HEADERS = new Set([
     'connection',
@@ -132,6 +135,13 @@ export async function buildOriginSubrequestOptions(
         const values = incoming[name]
         if (values?.length) {
             headers[name] = [...values]
+        }
+    }
+
+    for (const name of VIEWER_FORWARD_HEADERS) {
+        const value = fetchRequest.headers.get(name)
+        if (value) {
+            headers[name] = [value]
         }
     }
 
