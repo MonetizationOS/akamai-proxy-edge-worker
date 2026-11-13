@@ -53,7 +53,13 @@ export function createHttpResponse({
     }
     return {
         status,
-        body: bodyStr,
+        // httpRequest() bodies are always streams
+        body: new ReadableStream<Uint8Array>({
+            start(controller) {
+                if (bodyStr) controller.enqueue(new TextEncoder().encode(bodyStr))
+                controller.close()
+            },
+        }),
         getHeader(name: string) {
             const lower = name.toLowerCase()
             for (const [k, v] of Object.entries(allHeaders)) {
