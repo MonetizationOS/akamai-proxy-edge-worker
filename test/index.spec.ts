@@ -135,6 +135,35 @@ describe('MonetizationOS Proxy', () => {
         )
     })
 
+    it('sends the public API key and request context with custom endpoint requests', async () => {
+        mockHttpRequest()
+
+        await responseProvider(createMockRequest({ path: '/mos-endpoints/custom-endpoint' }))
+
+        const endpointCall = vi.mocked(httpRequest).mock.calls.find(([url]) =>
+            String(url).startsWith('/mos-api/api/v1/envs/'),
+        )
+        const headers = (endpointCall?.[1] as { headers: Record<string, string[]> }).headers
+        expect(headers['x-mos-key']).toEqual(['PublicBearer sk_test_123_key.payload'])
+        expect(JSON.parse(headers['x-mos-endpoint-request-context']![0]!)).toMatchObject({
+            identity: expect.any(Object),
+            clientMetadata: { akamai: { host: 'https://test.example' } },
+        })
+    })
+
+    it('authenticates /mos-api routes to MonetizationOS with the public API key', async () => {
+        mockHttpRequest()
+
+        await responseProvider(
+            createMockRequest({ path: '/mos-api/access-checks', method: 'POST', body: '{"resource":"r1"}' }),
+        )
+
+        const apiCall = vi.mocked(httpRequest).mock.calls.find(([url]) => url === '/mos-api/api/v1/access-checks')
+        const options = apiCall?.[1] as { headers: Record<string, string[]>; body: string }
+        expect(options.headers.authorization).toEqual(['PublicBearer sk_test_123_key.payload'])
+        expect(JSON.parse(options.body)).toMatchObject({ resource: 'r1' })
+    })
+
     it('fetch surface decisions for HTML responses', async () => {
         mockHttpRequest()
 
