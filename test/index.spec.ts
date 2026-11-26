@@ -62,6 +62,15 @@ describe('MonetizationOS Proxy', () => {
         expect(res.body).toBe(bodyStream)
     })
 
+    it('streams HTML served with a mixed-case Content-Type', async () => {
+        mockHttpRequest({ contentType: 'Text/HTML' })
+
+        const res = await responseProvider(createMockRequest())
+        expect(res.status).toBe(200)
+        expect(typeof res.body).not.toBe('string')
+        expect(await getBodyText(res.body)).toContain('<h1>Test</h1>')
+    })
+
     it('proxies GET JSON requests', async () => {
         mockHttpRequest({ responseBody: { success: true } })
 
