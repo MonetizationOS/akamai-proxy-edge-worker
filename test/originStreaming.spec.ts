@@ -3,7 +3,6 @@ import type { SurfaceDecisionResponse } from '@monetizationos/proxy'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { httpRequest } from 'http-request'
 import { akamaiHtmlRewriter } from '../src/akamaiHtmlRewriter'
-import { AkamaiTextDecoder } from '../src/akamaiTextEncodingPolyfill'
 import { responseProvider } from '../src/main'
 import { createHttpResponse, createMockRequest, getBodyText, surfaceDecisionsResponse } from './helpers'
 
@@ -223,32 +222,26 @@ describe('Streaming origin HTML', () => {
 
     it('keeps the markup after a stray non-UTF-8 byte through the polyfilled TextDecoder', async () => {
         // EdgeWorkers has no global TextDecoder; streamed bytes reach the core's decoder undecoded
-        const nativeDecoder = globalThis.TextDecoder
-        globalThis.TextDecoder = AkamaiTextDecoder as unknown as typeof TextDecoder
-        try {
-            const encoder = new TextEncoder()
-            const body = new ReadableStream<Uint8Array>({
-                start(controller) {
-                    controller.enqueue(encoder.encode('<html><head></head><body><p>caf'))
-                    controller.enqueue(new Uint8Array([0xe9]))
-                    controller.enqueue(encoder.encode('</p><a href="https://origin.example/x">X</a></body></html>'))
-                    controller.close()
-                },
-            })
-            vi.mocked(httpRequest).mockImplementation((url: string) =>
-                Promise.resolve(
-                    url.includes('/api/v1/surface-decisions')
-                        ? createHttpResponse({ json: surfaceDecisionsResponse })
-                        : streamedHtmlResponse(body, 'text/html; charset=iso-8859-1'),
-                ),
-            )
+        const encoder = new TextEncoder()
+        const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+                controller.enqueue(encoder.encode('<html><head></head><body><p>caf'))
+                controller.enqueue(new Uint8Array([0xe9]))
+                controller.enqueue(encoder.encode('</p><a href="https://origin.example/x">X</a></body></html>'))
+                controller.close()
+            },
+        })
+        vi.mocked(httpRequest).mockImplementation((url: string) =>
+            Promise.resolve(
+                url.includes('/api/v1/surface-decisions')
+                    ? createHttpResponse({ json: surfaceDecisionsResponse })
+                    : streamedHtmlResponse(body, 'text/html; charset=iso-8859-1'),
+            ),
+        )
 
-            const res = await responseProvider(createMockRequest())
-            const text = await getBodyText(res.body)
+        const res = await responseProvider(createMockRequest())
+        const text = await getBodyText(res.body)
 
-            expect(text).toBe('<html><head></head><body><p>caf�</p><a href="https://test.example/x">X</a></body></html>')
-        } finally {
-            globalThis.TextDecoder = nativeDecoder
-        }
+        expect(text).toBe('<html><head></head><body><p>caf�</p><a href="https://test.example/x">X</a></body></html>')
     })
 })

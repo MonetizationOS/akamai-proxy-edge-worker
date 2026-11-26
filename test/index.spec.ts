@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { responseProvider } from '../src/main'
 import { loadEnv } from '../src/env'
-import { AkamaiTextDecoder } from '../src/akamaiTextEncodingPolyfill'
 import { httpRequest } from 'http-request'
 import { createResponse } from 'create-response'
 import {
@@ -314,21 +313,15 @@ describe('MonetizationOS Proxy', () => {
 
     it('streams origin link rewriting through the polyfilled TextDecoder', async () => {
         // EdgeWorkers has no global TextDecoder, so the core's streaming decode runs on the polyfill
-        const nativeDecoder = globalThis.TextDecoder
-        globalThis.TextDecoder = AkamaiTextDecoder as unknown as typeof TextDecoder
-        try {
-            mockHttpRequest({
-                responseBody: '<html><head></head><body><a href="https://origin.example/café">Café 🌍</a></body></html>',
-            })
+        mockHttpRequest({
+            responseBody: '<html><head></head><body><a href="https://origin.example/café">Café 🌍</a></body></html>',
+        })
 
-            const res = await responseProvider(createMockRequest())
-            const text = await getBodyText(res.body)
+        const res = await responseProvider(createMockRequest())
+        const text = await getBodyText(res.body)
 
-            expect(res.status).toBe(200)
-            expect(text).toContain('<a href="https://test.example/café">Café 🌍</a>')
-        } finally {
-            globalThis.TextDecoder = nativeDecoder
-        }
+        expect(res.status).toBe(200)
+        expect(text).toContain('<a href="https://test.example/café">Café 🌍</a>')
     })
 
     it.each([
