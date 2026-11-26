@@ -104,6 +104,10 @@ export class AkamaiHeaders {
         return this.values.get(normalizeHeaderName(name))?.[0] ?? null
     }
 
+    has(name: string): boolean {
+        return this.values.has(normalizeHeaderName(name))
+    }
+
     delete(name: string): void {
         this.values.delete(normalizeHeaderName(name))
     }

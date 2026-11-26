@@ -18,6 +18,14 @@ describe('Akamai Fetch polyfill', () => {
         expect(headers.getSetCookie()).toEqual(['a=1', 'b=2'])
     })
 
+    it('supports Headers has, whatever the case', () => {
+        const headers = new AkamaiHeaders({ 'Accept-Ranges': 'bytes' })
+        expect(headers.has('accept-ranges')).toBe(true)
+        expect(headers.has('Content-Range')).toBe(false)
+        headers.delete('Accept-Ranges')
+        expect(headers.has('Accept-Ranges')).toBe(false)
+    })
+
     it('builds Request from a prior Request', () => {
         const original = new AkamaiRequest('https://test.example/page', {
             method: 'POST',
