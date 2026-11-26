@@ -11,7 +11,7 @@
         "test:run": "vitest run"
     },
     "dependencies": {
-        "@monetizationos/proxy": "1.4.3"
+        "@monetizationos/proxy": "1.11.1"
     },
     "devDependencies": {
         "@rollup/plugin-commonjs": "^29.0.2",

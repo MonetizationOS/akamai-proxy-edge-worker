@@ -104,6 +104,10 @@ export class AkamaiHeaders {
         return this.values.get(normalizeHeaderName(name))?.[0] ?? null
     }
 
+    has(name: string): boolean {
+        return this.values.has(normalizeHeaderName(name))
+    }
+
     delete(name: string): void {
         this.values.delete(normalizeHeaderName(name))
     }
@@ -233,7 +237,11 @@ export class AkamaiResponse {
                 headers,
             })
         }
-        if (this.bodyStream && typeof this.bodyStream.tee === 'function') {
+        if (this.bodyStream) {
+            // Throws rather than clone to an empty body, so mos-proxy fails open with the original instead
+            if (typeof this.bodyStream.tee !== 'function') {
+                throw new TypeError('Response body stream cannot be cloned on Akamai')
+            }
             const [left, right] = this.bodyStream.tee()
             this.bodyStream = left
             this.body = left

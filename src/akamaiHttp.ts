@@ -21,6 +21,9 @@ const ORIGIN_FORWARD_HEADERS = [
     'authorization',
 ] as const
 
+/** Set by mos-proxy on the origin request from the viewer's host and protocol. */
+const VIEWER_FORWARD_HEADERS = ['x-forwarded-host', 'x-forwarded-proto'] as const
+
 /** Never forward these on httpRequest() sub-requests (hop-by-hop, Akamai-internal, debug). */
 const SKIP_SUBREQUEST_HEADERS = new Set([
     'connection',
@@ -76,6 +79,31 @@ function getHttpResponseBodyStream(httpResponse: AkamaiHttpResponse): ReadableSt
     return null
 }
 
+/**
+ * Re-reads an httpRequest() body through the `streams` module's ReadableStream, so tee() and pipeThrough()
+ * follow the WHATWG spec whatever the sub-request stream supports, and cancel never rejects.
+ */
+function streamHttpResponseBody(body: ReadableStream<Uint8Array>): ReadableStream<Uint8Array> {
+    const reader = body.getReader()
+    return new ReadableStream<Uint8Array>(
+        {
+            async pull(controller) {
+                const { done, value } = await reader.read()
+                if (done) {
+                    controller.close()
+                } else {
+                    controller.enqueue(value)
+                }
+            },
+            async cancel(reason) {
+                await reader.cancel(reason).catch(() => {})
+            },
+        },
+        // Read the origin only as fast as the proxy does
+        { highWaterMark: 0 },
+    )
+}
+
 export async function httpResponseToFetchResponse(httpResponse: AkamaiHttpResponse): Promise<Response> {
     const headers = new Headers()
     for (const [key, values] of Object.entries(httpResponse.getHeaders())) {
@@ -88,6 +116,14 @@ export async function httpResponseToFetchResponse(httpResponse: AkamaiHttpRespon
     const bodyStream = getHttpResponseBodyStream(httpResponse)
     if (bodyStream && !isTextContentType(contentType)) {
         return new Response(bodyStream, {
+            status: httpResponse.status,
+            headers,
+        })
+    }
+
+    // HTML stays a stream so mos-proxy sends the surface decision once it has read the head, and can cancel the origin
+    if (bodyStream && contentType?.toLowerCase().startsWith('text/html')) {
+        return new Response(streamHttpResponseBody(bodyStream), {
             status: httpResponse.status,
             headers,
         })
@@ -132,6 +168,13 @@ export async function buildOriginSubrequestOptions(
         const values = incoming[name]
         if (values?.length) {
             headers[name] = [...values]
+        }
+    }
+
+    for (const name of VIEWER_FORWARD_HEADERS) {
+        const value = fetchRequest.headers.get(name)
+        if (value) {
+            headers[name] = [value]
         }
     }
 

@@ -1,4 +1,5 @@
 import { installFetchPolyfill } from './akamaiFetchPolyfill'
+import { installPromisePolyfill } from './akamaiPromisePolyfill'
 import { installStreamsPolyfill } from './akamaiStreamsPolyfill'
 import { installTextEncodingPolyfill } from './akamaiTextEncodingPolyfill'
 import { installUrlPolyfill } from './akamaiUrlPolyfill'
@@ -9,3 +10,4 @@ installStreamsPolyfill()
 installTextEncodingPolyfill()
 installUrlPolyfill()
 installFetchPolyfill()
+installPromisePolyfill()

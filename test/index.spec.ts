@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { responseProvider } from '../src/main'
 import { loadEnv } from '../src/env'
 import { httpRequest } from 'http-request'
+import { createResponse } from 'create-response'
 import {
     createMockRequest,
     getBodyText,
@@ -27,6 +28,11 @@ vi.mock('../src/env', () => ({
         SURFACE_DECISIONS_COOKIES: '',
     }),
 }))
+
+vi.mock('create-response', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('create-response')>()
+    return { createResponse: vi.fn(actual.createResponse) }
+})
 
 describe('MonetizationOS Proxy', () => {
     afterEach(() => {
@@ -59,6 +65,26 @@ describe('MonetizationOS Proxy', () => {
         expect(res.status).toBe(200)
         expect(typeof res.body).not.toBe('string')
         expect(res.body).toBe(bodyStream)
+    })
+
+    it('streams HTML served with a mixed-case Content-Type', async () => {
+        mockHttpRequest({ contentType: 'Text/HTML' })
+
+        const res = await responseProvider(createMockRequest())
+        expect(res.status).toBe(200)
+        expect(typeof res.body).not.toBe('string')
+        expect(await getBodyText(res.body)).toContain('<h1>Test</h1>')
+    })
+
+    it('returns a 500 when converting the response fails', async () => {
+        mockHttpRequest()
+        vi.mocked(createResponse).mockImplementationOnce(() => {
+            throw new Error('body too large')
+        })
+
+        const res = await responseProvider(createMockRequest())
+        expect(res.status).toBe(500)
+        expect(res.body).toBe('Error: body too large')
     })
 
     it('proxies GET JSON requests', async () => {
@@ -99,6 +125,16 @@ describe('MonetizationOS Proxy', () => {
         expect(options?.headers?.accept).toEqual(['text/html'])
     })
 
+    it('sends the viewer host and protocol to the origin as X-Forwarded headers', async () => {
+        mockHttpRequest({ responseBody: { success: true } })
+
+        await responseProvider(createMockRequest({ scheme: 'http', host: 'news.example' }))
+
+        const options = vi.mocked(httpRequest).mock.calls[0]?.[1] as { headers?: Record<string, string[]> }
+        expect(options?.headers?.['x-forwarded-host']).toEqual(['news.example'])
+        expect(options?.headers?.['x-forwarded-proto']).toEqual(['http'])
+    })
+
     it('proxies POST requests with body', async () => {
         mockHttpRequest({ responseBody: { success: true } })
 
@@ -122,6 +158,35 @@ describe('MonetizationOS Proxy', () => {
         ).toBe(
             true,
         )
+    })
+
+    it('sends the public API key and request context with custom endpoint requests', async () => {
+        mockHttpRequest()
+
+        await responseProvider(createMockRequest({ path: '/mos-endpoints/custom-endpoint' }))
+
+        const endpointCall = vi.mocked(httpRequest).mock.calls.find(([url]) =>
+            String(url).startsWith('/mos-api/api/v1/envs/'),
+        )
+        const headers = (endpointCall?.[1] as { headers: Record<string, string[]> }).headers
+        expect(headers['x-mos-key']).toEqual(['PublicBearer sk_test_123_key.payload'])
+        expect(JSON.parse(headers['x-mos-endpoint-request-context']![0]!)).toMatchObject({
+            identity: expect.any(Object),
+            clientMetadata: { akamai: { host: 'https://test.example' } },
+        })
+    })
+
+    it('authenticates /mos-api routes to MonetizationOS with the public API key', async () => {
+        mockHttpRequest()
+
+        await responseProvider(
+            createMockRequest({ path: '/mos-api/access-checks', method: 'POST', body: '{"resource":"r1"}' }),
+        )
+
+        const apiCall = vi.mocked(httpRequest).mock.calls.find(([url]) => url === '/mos-api/api/v1/access-checks')
+        const options = apiCall?.[1] as { headers: Record<string, string[]>; body: string }
+        expect(options.headers.authorization).toEqual(['PublicBearer sk_test_123_key.payload'])
+        expect(JSON.parse(options.body)).toMatchObject({ resource: 'r1' })
     })
 
     it('fetch surface decisions for HTML responses', async () => {
@@ -156,6 +221,19 @@ describe('MonetizationOS Proxy', () => {
             'jwt-cookie': 'request-jwt',
             theme: 'from-origin',
         })
+    })
+
+    it('sends the Akamai client IP to surface decisions', async () => {
+        mockHttpRequest()
+
+        await responseProvider(createMockRequest({ clientIp: '203.0.113.7' }))
+
+        const decisionsCall = vi.mocked(httpRequest).mock.calls.find(([url]) =>
+            String(url).includes('/api/v1/surface-decisions'),
+        )
+        expect(decisionsCall).toBeDefined()
+        const options = decisionsCall![1] as { body?: string }
+        expect(JSON.parse(options.body!).http.clientIP).toBe('203.0.113.7')
     })
 
     it('preserves 404 origin HTTP status code for HTML responses', async () => {
@@ -231,6 +309,19 @@ describe('MonetizationOS Proxy', () => {
         const text = await getBodyText(res.body)
         includes.forEach((s) => expect(text).toContain(s))
         excludes.forEach((s) => expect(text).not.toContain(s))
+    })
+
+    it('streams origin link rewriting through the polyfilled TextDecoder', async () => {
+        // EdgeWorkers has no global TextDecoder, so the core's streaming decode runs on the polyfill
+        mockHttpRequest({
+            responseBody: '<html><head></head><body><a href="https://origin.example/café">Café 🌍</a></body></html>',
+        })
+
+        const res = await responseProvider(createMockRequest())
+        const text = await getBodyText(res.body)
+
+        expect(res.status).toBe(200)
+        expect(text).toContain('<a href="https://test.example/café">Café 🌍</a>')
     })
 
     it.each([

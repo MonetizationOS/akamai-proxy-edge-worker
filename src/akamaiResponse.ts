@@ -24,7 +24,7 @@ export async function toAkamaiResponse(response: Response): Promise<AkamaiEdgeRe
     const canStream = typeof response.body.getReader === 'function'
 
     // HTML is streamed for the rewriter; binary assets are streamed like the legacy worker.
-    if (canStream && (contentType?.startsWith('text/html') || !isTextContentType(contentType))) {
+    if (canStream && (contentType?.toLowerCase().startsWith('text/html') || !isTextContentType(contentType))) {
         return createResponse(response.status, headers, response.body) as AkamaiEdgeResponse
     }
 

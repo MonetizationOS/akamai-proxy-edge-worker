@@ -16,6 +16,10 @@ export default defineConfig({
     },
     test: {
         environment: 'node',
+        // Tests run in their own V8 context, so the setup file can strip its globals without breaking vitest
+        pool: 'vmForks',
+        setupFiles: ['test/edgeWorkersGlobals.ts'],
+        globalSetup: ['test/bundle.globalSetup.ts'],
         server: {
             deps: {
                 inline: [/@monetizationos\/proxy/],

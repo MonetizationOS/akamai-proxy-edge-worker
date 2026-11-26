@@ -2,9 +2,6 @@ import { ReadableStream, WritableStream } from 'node:stream/web'
 import { HTMLRewriter } from 'html-rewriter-wasm'
 import type { AkamaiHtmlElement } from 'html-rewriter'
 
-const encoder = new TextEncoder()
-const decoder = new TextDecoder()
-
 function wrapElement(handler: (element: AkamaiHtmlElement) => void) {
     return (element: {
         before: (content: string, options?: { html?: boolean }) => void
@@ -46,8 +43,13 @@ export class HtmlRewritingStream {
 
     constructor() {
         const handlers = this.#handlers
-        const inputChunks: Uint8Array[] = []
         let outputController!: ReadableStreamDefaultController<Uint8Array>
+        let rewriter: HTMLRewriter | null = null
+        let freed = false
+        const free = () => {
+            if (!freed) rewriter?.free()
+            freed = true
+        }
 
         this.readable = new ReadableStream<Uint8Array>({
             start(controller) {
@@ -55,32 +57,41 @@ export class HtmlRewritingStream {
             },
         })
 
+        // Streams like Akamai's lol-html: handlers run as each chunk is written, not once the input ends
+        const session = () => {
+            if (rewriter) return rewriter
+            rewriter = new HTMLRewriter((chunk) => {
+                outputController.enqueue(chunk.slice())
+            })
+            for (const { selector, handler } of handlers) {
+                try {
+                    rewriter.on(selector, { element: wrapElement(handler) })
+                } catch {
+                    // skip invalid selectors at processing time
+                }
+            }
+            return rewriter
+        }
+
+        // A sink failure errors only the writable, so error the readable too or its readers hang
+        const fail = (err: unknown): never => {
+            free()
+            outputController.error(err)
+            throw err
+        }
+
         this.writable = new WritableStream<Uint8Array>({
-            write(chunk) {
-                inputChunks.push(chunk)
+            async write(chunk) {
+                await session().write(chunk).catch(fail)
             },
             async close() {
-                let output = ''
-                const rewriter = new HTMLRewriter((chunk) => {
-                    output += decoder.decode(chunk)
-                })
-                for (const { selector, handler } of handlers) {
-                    try {
-                        rewriter.on(selector, { element: wrapElement(handler) })
-                    } catch {
-                        // skip invalid selectors at processing time
-                    }
-                }
-                try {
-                    for (const chunk of inputChunks) {
-                        await rewriter.write(chunk)
-                    }
-                    await rewriter.end()
-                } finally {
-                    rewriter.free()
-                }
-                outputController.enqueue(encoder.encode(output))
+                await session().end().catch(fail)
+                free()
                 outputController.close()
+            },
+            abort(reason) {
+                free()
+                outputController.error(reason)
             },
         })
     }

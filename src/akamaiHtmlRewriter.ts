@@ -76,6 +76,11 @@ function adaptElement(element: AkamaiHtmlElement): RewriterElement {
             element.replaceWith(value)
         },
         remove: () => element.remove(),
+        // Akamai's element can't drop its tags and keep its children. Only range cuts would call this,
+        // and `onEndTag: false` makes mos-proxy skip them.
+        removeAndKeepContent: () => {
+            throw new Error('removeAndKeepContent is not supported by Akamai HtmlRewritingStream')
+        },
     }
 }
 

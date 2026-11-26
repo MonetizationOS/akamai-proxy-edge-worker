@@ -53,6 +53,8 @@ Each pattern is a regex tested against the cookie **name**. Plain names like `^_
 
 `PMUSER_ORIGIN_REQUEST_HEADERS` adds or overrides outgoing headers on every upstream `httpRequest()` to the origin. Set it to a JSON object mapping header names to values. Leave it empty or omit it when no extra headers are needed.
 
+Origin requests carry the viewer's host and protocol as `X-Forwarded-Host` and `X-Forwarded-Proto`, so the origin can build URLs on the public domain. `PMUSER_ORIGIN_REQUEST_HEADERS` can override either.
+
 Example Property Manager value:
 
 ```json
@@ -63,7 +65,7 @@ Example Property Manager value:
 
 This project uses Akamai's official TypeScript bindings (`@types/akamai-edgeworkers`) for EdgeWorkers request objects and built-in modules (`http-request`, `streams`, `html-rewriter`, `create-response`). Those bindings are compile-time only; they do not add runtime globals.
 
-Akamai EdgeWorkers do not provide the standard Web Platform globals that `@monetizationos/proxy` expects (`URL`, `Headers`, `Request`, `Response`, `ReadableStream`, `WritableStream`, `TransformStream`, `TextEncoder`, `TextDecoder`). The worker installs minimal polyfills at startup via `src/installAkamaiGlobals.ts` before the shared core runs. Avoid top-level use of those globals in worker code — Akamai static validation evaluates the bundle at upload time.
+Akamai EdgeWorkers do not provide the standard Web Platform globals that `@monetizationos/proxy` expects (`URL`, `Headers`, `Request`, `Response`, `ReadableStream`, `WritableStream`, `TransformStream`, `TextEncoder`, `TextDecoder`). The worker installs minimal polyfills at startup via `src/installAkamaiGlobals.ts` before the shared core runs. It also installs `Promise.withResolvers` when the runtime lacks it. Avoid top-level use of those globals in worker code — Akamai static validation evaluates the bundle at upload time.
 
 If the response body shows `ReferenceError: … is not defined`, rebuild and redeploy — that means the active EdgeWorker version predates the polyfill for that global.
 
@@ -133,6 +135,8 @@ Then retry your command. You can also refresh the package with `akamai update ed
     ```sh
     pnpm run test:run
     ```
+
+    EdgeWorkers is bare V8, so the tests remove every global a bare V8 context lacks (`URL`, `TextDecoder`, streams, timers, `Promise.withResolvers` and so on) and the worker runs on its polyfills as in production. `test/bundle.spec.ts` also runs the rollup bundle in a fresh V8 context with `eval` disabled.
 
 3. Build the EdgeWorkers bundle:
 

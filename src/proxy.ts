@@ -54,6 +54,8 @@ export function createProxy(env: Env, akamaiRequest: AkamaiRequest): MOSProxy {
                 }
             },
         })
+        // request.clientIp is Akamai's True-Client-IP; the fetch Request built from the Akamai request carries no IP header.
+        .withClientIP(() => akamaiRequest.clientIp)
         .build()
 }
 
