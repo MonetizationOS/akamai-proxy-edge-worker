@@ -45,6 +45,11 @@ export class HtmlRewritingStream {
         const handlers = this.#handlers
         let outputController!: ReadableStreamDefaultController<Uint8Array>
         let rewriter: HTMLRewriter | null = null
+        let freed = false
+        const free = () => {
+            if (!freed) rewriter?.free()
+            freed = true
+        }
 
         this.readable = new ReadableStream<Uint8Array>({
             start(controller) {
@@ -68,21 +73,24 @@ export class HtmlRewritingStream {
             return rewriter
         }
 
+        // A sink failure errors only the writable, so error the readable too or its readers hang
+        const fail = (err: unknown): never => {
+            free()
+            outputController.error(err)
+            throw err
+        }
+
         this.writable = new WritableStream<Uint8Array>({
             async write(chunk) {
-                await session().write(chunk)
+                await session().write(chunk).catch(fail)
             },
             async close() {
-                const current = session()
-                try {
-                    await current.end()
-                } finally {
-                    current.free()
-                }
+                await session().end().catch(fail)
+                free()
                 outputController.close()
             },
             abort(reason) {
-                rewriter?.free()
+                free()
                 outputController.error(reason)
             },
         })
