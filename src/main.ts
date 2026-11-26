@@ -14,7 +14,7 @@ export async function responseProvider(request: AkamaiRequest) {
         const proxy = createProxy(env, request)
         const fetchRequest = toFetchRequest(request)
         const response = await proxy.handle(fetchRequest)
-        return toAkamaiResponse(response)
+        return await toAkamaiResponse(response)
     } catch (err) {
         return createResponse(500, { 'Content-Type': ['text/plain'] }, String(err))
     }

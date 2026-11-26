@@ -3,6 +3,7 @@ import { responseProvider } from '../src/main'
 import { loadEnv } from '../src/env'
 import { AkamaiTextDecoder } from '../src/akamaiTextEncodingPolyfill'
 import { httpRequest } from 'http-request'
+import { createResponse } from 'create-response'
 import {
     createMockRequest,
     getBodyText,
@@ -28,6 +29,11 @@ vi.mock('../src/env', () => ({
         SURFACE_DECISIONS_COOKIES: '',
     }),
 }))
+
+vi.mock('create-response', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('create-response')>()
+    return { createResponse: vi.fn(actual.createResponse) }
+})
 
 describe('MonetizationOS Proxy', () => {
     afterEach(() => {
@@ -69,6 +75,17 @@ describe('MonetizationOS Proxy', () => {
         expect(res.status).toBe(200)
         expect(typeof res.body).not.toBe('string')
         expect(await getBodyText(res.body)).toContain('<h1>Test</h1>')
+    })
+
+    it('returns a 500 when converting the response fails', async () => {
+        mockHttpRequest()
+        vi.mocked(createResponse).mockImplementationOnce(() => {
+            throw new Error('body too large')
+        })
+
+        const res = await responseProvider(createMockRequest())
+        expect(res.status).toBe(500)
+        expect(res.body).toBe('Error: body too large')
     })
 
     it('proxies GET JSON requests', async () => {
